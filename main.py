@@ -4,7 +4,7 @@ import dht
 import ujson
 
 # ==== PIN SETUP ====
-dht_sensor = dht.DHT11(Pin(16))  # disarankan pindah ke 4/16 kalau real hardware
+dht_sensor = dht.DHT11(Pin(16))  # GPIO 16 aman
 
 trig = Pin(4, Pin.OUT)
 echo = Pin(18, Pin.IN)
@@ -32,12 +32,13 @@ def log(msg):
     timestamp = "{:02d}:{:02d}:{:02d}".format(t[3], t[4], t[5])
     print("[{}] {}".format(timestamp, msg))
 
-
 # ==== MAIN LOOP ====
 while True:
+    start_time = time.time()  # catat waktu mulai
+
     log("Reading sensors...")
 
-    # --- DHT22 ---
+    # --- DHT11 ---
     try:
         dht_sensor.measure()
         suhu = dht_sensor.temperature()
@@ -70,8 +71,10 @@ while True:
     })
 
     log("Sensor Data: {}".format(message))
-
     print("-----------------------------")
 
-    # DHT butuh delay minimal
-    time.sleep(2)
+    elapsed = time.time() - start_time
+    sleep_time = 1 - elapsed
+    
+    if sleep_time > 0:
+        time.sleep(sleep_time)
