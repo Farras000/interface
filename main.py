@@ -1,13 +1,16 @@
 import time
-from machine import Pin, time_pulse_us
+from machine import Pin, time_pulse_us, PWM
 import dht
 import ujson
 
 # ==== PIN SETUP ====
-dht_sensor = dht.DHT11(Pin(16))  # GPIO 16 aman
+dht_sensor = dht.DHT11(Pin(16))  
 
 trig = Pin(4, Pin.OUT)
 echo = Pin(18, Pin.IN)
+
+fan = PWM(Pin(23))
+fan.freq(25000)
 
 # ==== FUNCTION: READ DISTANCE ====
 def read_distance():
@@ -18,13 +21,21 @@ def read_distance():
     time.sleep_us(10)
     trig.off()
     
-    duration = time_pulse_us(echo, 1, 30000)  # timeout 30ms
+    duration = time_pulse_us(echo, 1, 30000)
     
     if duration < 0:
         return -1
     
-    distance = (duration * 0.0343) / 2
-    return distance
+    return (duration * 0.0343) / 2
+
+# ==== FUNCTION: FAN ON/OFF ====
+def set_fan(dist):
+    if dist != -1 and dist < 100:
+        fan.duty(1023)  # FULL ON
+        return 1
+    else:
+        fan.duty(0)     # OFF
+        return 0
 
 # ==== FUNCTION: LOG ====
 def log(msg):
@@ -34,11 +45,11 @@ def log(msg):
 
 # ==== MAIN LOOP ====
 while True:
-    start_time = time.time()  # catat waktu mulai
+    start_time = time.time()
 
     log("Reading sensors...")
 
-    # --- DHT11 ---
+    # --- DHT (optional, tetap dibaca kalau mau log) ---
     try:
         dht_sensor.measure()
         suhu = dht_sensor.temperature()
@@ -63,16 +74,26 @@ while True:
         distance = -1
         log("Ultrasonic ERROR")
 
+    # ==== FAN CONTROL ====
+    fan_state = set_fan(distance)
+
+    if fan_state:
+        log("Fan Status : ON")
+    else:
+        log("Fan Status : OFF")
+
     # --- JSON ---
     message = ujson.dumps({
         "temperature": suhu,
         "humidity": humidity,
-        "distance": distance
+        "distance": distance,
+        "fan": fan_state
     })
 
     log("Sensor Data: {}".format(message))
     print("-----------------------------")
 
+    # ==== LOOP TIMING ====
     elapsed = time.time() - start_time
     sleep_time = 1 - elapsed
     
