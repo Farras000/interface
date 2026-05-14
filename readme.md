@@ -35,9 +35,9 @@ The system consists of two parts:
 ```
 Arduino                         Python Server                    Browser
   │                                  │                              │
-  │── JSON {temp,hum,dist,fan} ────►│                              │
-  │                                  │── compute fan PWM ──►       │
-  │◄── PWM value (0–255) ──────────│                              │
+  │── JSON {temp,hum,dist,fan} ────► │                              │
+  │                                  │── compute fan PWM ──►        │
+  │◄── PWM value (0–255) ─────────── │                              │
   │                                  │── WebSocket emit ──────────►│
   │                                  │                     (real-time charts)
 ```
@@ -111,14 +111,14 @@ Arduino                         Python Server                    Browser
 
 ### Pin Connections
 
-| Arduino Pin | Connected To | Notes |
+| Arduino Pin | Connected To      | Notes |
 |---|---|---|
-| **Pin 2** | DHT11 data pin | Add a 10kΩ pull-up resistor to VCC |
-| **Pin 3** | HC-SR04 TRIG | Trigger (output) |
-| **Pin 4** | HC-SR04 ECHO | Echo (input) |
-| **Pin 5** | Fan (via MOSFET) | Must be a PWM-capable pin |
-| **5V** | Sensor VCC | Power for DHT11 and HC-SR04 |
-| **GND** | Common ground | All components share ground |
+| **Pin 2** | DHT11 data pin    | Add a 10kΩ pull-up resistor to VCC  |
+| **Pin 3** | HC-SR04 TRIG      | Trigger (output)                    |
+| **Pin 4** | HC-SR04 ECHO      | Echo (input)                        |
+| **Pin 5** | Fan (via MOSFET)  | Must be a PWM-capable pin           |
+| **5V**    | Sensor VCC        | Power for DHT11 and HC-SR04         |
+| **GND**   | Common ground     | All components share ground         |
 
 ### Wiring Diagram
 
