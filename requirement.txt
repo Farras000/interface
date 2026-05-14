@@ -1,3 +1,5 @@
-esptool
+flask
 pyserial
-mpremote
+flask-socketio
+numpy
+scipy
