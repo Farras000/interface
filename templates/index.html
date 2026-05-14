@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Fan Lab — Signal Processing</title>
+    <meta name="description" content="LabVIEW-style real-time sensor dashboard with FFT, digital filters, and correlation analysis">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="header">
+        <h1>🔬 Smart Fan Lab <span style="font-weight:400;font-size:0.75rem;color:var(--text-secondary)">Signal Processing</span></h1>
+        <div class="header-right">
+            <span class="buffer-info" id="bufferInfo">Buffer: 0/64</span>
+            <div class="status-badge">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">Connecting…</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('dashboard')" id="tabDashboard">📊 Dashboard</button>
+        <button class="tab-btn" onclick="switchTab('signal')" id="tabSignal">📈 Signal Processing</button>
+        <button class="tab-btn" onclick="switchTab('correlation')" id="tabCorrelation">🔗 Correlation</button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <span class="toolbar-label">Control</span>
+        <button class="btn" id="btnPause" onclick="togglePause()">⏸ Pause</button>
+        <div class="toolbar-sep"></div>
+        <span class="toolbar-label">Data</span>
+        <button class="btn" onclick="window.location.href='/download'">💾 Export CSV</button>
+        <div class="toolbar-sep"></div>
+        <span class="toolbar-label" id="countLabel">Samples: 0</span>
+    </div>
+
+    <!-- ==================== DASHBOARD TAB ==================== -->
+    <div class="tab-panel active" id="panelDashboard">
+        <div class="gauges">
+            <div class="gauge-card temp"><span class="gauge-label">Temperature</span><span class="gauge-value" id="valTemp">--<span class="gauge-unit"> °C</span></span></div>
+            <div class="gauge-card hum"><span class="gauge-label">Humidity</span><span class="gauge-value" id="valHum">--<span class="gauge-unit"> %</span></span></div>
+            <div class="gauge-card fan"><span class="gauge-label">Fan PWM</span><span class="gauge-value" id="valFan">--<span class="gauge-unit"> /255</span></span></div>
+            <div class="gauge-card dist"><span class="gauge-label">Distance</span><span class="gauge-value" id="valDist">--<span class="gauge-unit"> cm</span></span></div>
+        </div>
+        <div class="stats-row">
+            <div class="stat-card temp"><div class="stat-card-title">Temp Stats</div><div class="stat-grid">
+                <div class="stat-item"><span class="stat-label">Mean</span><span class="stat-value" id="statTempMean">--</span></div>
+                <div class="stat-item"><span class="stat-label">Std</span><span class="stat-value" id="statTempStd">--</span></div>
+                <div class="stat-item"><span class="stat-label">Min</span><span class="stat-value" id="statTempMin">--</span></div>
+                <div class="stat-item"><span class="stat-label">Max</span><span class="stat-value" id="statTempMax">--</span></div>
+            </div></div>
+            <div class="stat-card hum"><div class="stat-card-title">Humidity Stats</div><div class="stat-grid">
+                <div class="stat-item"><span class="stat-label">Mean</span><span class="stat-value" id="statHumMean">--</span></div>
+                <div class="stat-item"><span class="stat-label">Std</span><span class="stat-value" id="statHumStd">--</span></div>
+                <div class="stat-item"><span class="stat-label">Min</span><span class="stat-value" id="statHumMin">--</span></div>
+                <div class="stat-item"><span class="stat-label">Max</span><span class="stat-value" id="statHumMax">--</span></div>
+            </div></div>
+            <div class="stat-card fan"><div class="stat-card-title">Fan Stats</div><div class="stat-grid">
+                <div class="stat-item"><span class="stat-label">Mean</span><span class="stat-value" id="statFanMean">--</span></div>
+                <div class="stat-item"><span class="stat-label">Std</span><span class="stat-value" id="statFanStd">--</span></div>
+                <div class="stat-item"><span class="stat-label">Min</span><span class="stat-value" id="statFanMin">--</span></div>
+                <div class="stat-item"><span class="stat-label">Max</span><span class="stat-value" id="statFanMax">--</span></div>
+            </div></div>
+            <div class="stat-card dist"><div class="stat-card-title">Distance Stats</div><div class="stat-grid">
+                <div class="stat-item"><span class="stat-label">Mean</span><span class="stat-value" id="statDistMean">--</span></div>
+                <div class="stat-item"><span class="stat-label">Std</span><span class="stat-value" id="statDistStd">--</span></div>
+                <div class="stat-item"><span class="stat-label">Min</span><span class="stat-value" id="statDistMin">--</span></div>
+                <div class="stat-item"><span class="stat-label">Max</span><span class="stat-value" id="statDistMax">--</span></div>
+            </div></div>
+        </div>
+        <div class="charts">
+            <div class="chart-card"><div class="chart-title">Temperature Over Time</div><canvas id="chartTemp"></canvas></div>
+            <div class="chart-card"><div class="chart-title">Humidity Over Time</div><canvas id="chartHum"></canvas></div>
+            <div class="chart-card"><div class="chart-title">Fan PWM Over Time</div><canvas id="chartFan"></canvas></div>
+            <div class="chart-card"><div class="chart-title">Distance Over Time</div><canvas id="chartDist"></canvas></div>
+        </div>
+    </div>
+
+    <!-- ==================== SIGNAL PROCESSING TAB ==================== -->
+    <div class="tab-panel" id="panelSignal">
+        <!-- Filter Control Panel -->
+        <div class="filter-panel">
+            <h3>🎛️ Digital Filter Configuration</h3>
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>Filter Type</label>
+                    <select id="filterType" onchange="updateFilter()">
+                        <option value="none">None (Bypass)</option>
+                        <option value="lowpass">Low-Pass</option>
+                        <option value="highpass">High-Pass</option>
+                        <option value="bandpass">Band-Pass</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Cutoff Freq (Hz)</label>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <input type="range" id="filterCutoff" min="0.01" max="0.49" step="0.01" value="0.1" oninput="updateFilter()">
+                        <span class="filter-val" id="cutoffVal">0.10</span>
+                    </div>
+                </div>
+                <div class="filter-group" id="cutoffHighGroup" style="display:none">
+                    <label>Upper Cutoff (Hz)</label>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <input type="range" id="filterCutoffHigh" min="0.01" max="0.49" step="0.01" value="0.4" oninput="updateFilter()">
+                        <span class="filter-val" id="cutoffHighVal">0.40</span>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label>Order</label>
+                    <select id="filterOrder" onchange="updateFilter()">
+                        <option value="1">1</option>
+                        <option value="2" selected>2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- FFT Spectrum Charts -->
+        <div class="charts" style="margin-bottom:16px">
+            <div class="chart-card"><div class="chart-title">🔊 FFT — Temperature</div><canvas id="fftTemp"></canvas></div>
+            <div class="chart-card"><div class="chart-title">🔊 FFT — Humidity</div><canvas id="fftHum"></canvas></div>
+            <div class="chart-card"><div class="chart-title">🔊 FFT — Distance</div><canvas id="fftDist"></canvas></div>
+            <div class="chart-card"><div class="chart-title">🔊 FFT — Fan PWM</div><canvas id="fftFan"></canvas></div>
+        </div>
+
+        <!-- Filtered Signal Overlay -->
+        <div class="charts">
+            <div class="chart-card"><div class="chart-title">Filtered — Temperature</div><canvas id="filtTemp"></canvas></div>
+            <div class="chart-card"><div class="chart-title">Filtered — Humidity</div><canvas id="filtHum"></canvas></div>
+            <div class="chart-card"><div class="chart-title">Filtered — Distance</div><canvas id="filtDist"></canvas></div>
+            <div class="chart-card"><div class="chart-title">Filtered — Fan PWM</div><canvas id="filtFan"></canvas></div>
+        </div>
+    </div>
+
+    <!-- ==================== CORRELATION TAB ==================== -->
+    <div class="tab-panel" id="panelCorrelation">
+        <div class="corr-cards">
+            <div class="stat-card"><div class="stat-card-title">Temp ↔ Fan Correlation</div>
+                <div class="corr-badge neutral" id="corrTempFan">--</div></div>
+            <div class="stat-card"><div class="stat-card-title">Temp ↔ Humidity Correlation</div>
+                <div class="corr-badge neutral" id="corrTempHum">--</div></div>
+            <div class="stat-card"><div class="stat-card-title">Temp ↔ Distance Correlation</div>
+                <div class="corr-badge neutral" id="corrTempDist">--</div></div>
+        </div>
+        <div class="charts" style="margin-bottom:16px">
+            <div class="chart-card"><div class="chart-title">Scatter — Temp vs Fan</div><canvas id="scatterTempFan"></canvas></div>
+            <div class="chart-card"><div class="chart-title">Scatter — Temp vs Humidity</div><canvas id="scatterTempHum"></canvas></div>
+        </div>
+        <div class="charts">
+            <div class="chart-card"><div class="chart-title">Rate of Change — Temperature (Δ/s)</div><canvas id="derivTemp"></canvas></div>
+            <div class="chart-card"><div class="chart-title">Rate of Change — Distance (Δ/s)</div><canvas id="derivDist"></canvas></div>
+        </div>
+    </div>
+
+<script>
+// ══════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    const map = { dashboard:'Dashboard', signal:'Signal', correlation:'Correlation' };
+    document.getElementById('tab'+map[tab]).classList.add('active');
+    document.getElementById('panel'+map[tab]).classList.add('active');
+}
+
+// ══════════════════════════════════════════════
+// CHART SETUP
+// ══════════════════════════════════════════════
+const MAX_POINTS = 60;
+const labels = [];
+const rawData = { temp:[], hum:[], fan:[], dist:[] };
+const filtData = { temp:[], hum:[], fan:[], dist:[] };
+let sampleCount = 0;
+
+const gridColor = 'rgba(255,255,255,0.03)';
+const tickColor = '#555a72';
+const colors = { temp:'#ff6b6b', hum:'#f59e42', fan:'#4ecdc4', dist:'#a78bfa' };
+const bgs = { temp:'rgba(255,107,107,0.06)', hum:'rgba(245,158,66,0.06)', fan:'rgba(78,205,196,0.06)', dist:'rgba(167,139,250,0.06)' };
+
+function makeTimeChart(id, label, color, bg, minY, maxY, rawArr, filtArr) {
+    return new Chart(document.getElementById(id), {
+        type:'line',
+        data:{ labels, datasets:[
+            { label:label+' (raw)', data:rawArr, borderColor:color, backgroundColor:bg, borderWidth:1.5, pointRadius:0, tension:0.2, fill:true },
+            { label:label+' (avg)', data:filtArr, borderColor:color, backgroundColor:'transparent', borderWidth:2.5, pointRadius:0, tension:0.4, fill:false, hidden:true }
+        ]},
+        options:{ responsive:true, animation:false, interaction:{mode:'index',intersect:false},
+            plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#13162a',borderColor:color,borderWidth:1,titleColor:'#e8eaf0',bodyColor:'#e8eaf0',padding:8,cornerRadius:6} },
+            scales:{ x:{ticks:{color:tickColor,maxTicksLimit:6,font:{size:9}},grid:{color:gridColor}}, y:{suggestedMin:minY,suggestedMax:maxY,ticks:{color:tickColor,font:{size:9}},grid:{color:gridColor}} }
+        }
+    });
+}
+
+const charts = {
+    temp: makeTimeChart('chartTemp','Temp °C','#ff6b6b','rgba(255,107,107,0.06)',18,35,rawData.temp,filtData.temp),
+    hum: makeTimeChart('chartHum','Humidity %','#f59e42','rgba(245,158,66,0.06)',20,80,rawData.hum,filtData.hum),
+    fan: makeTimeChart('chartFan','Fan PWM','#4ecdc4','rgba(78,205,196,0.06)',0,260,rawData.fan,filtData.fan),
+    dist: makeTimeChart('chartDist','Distance cm','#a78bfa','rgba(167,139,250,0.06)',0,110,rawData.dist,filtData.dist),
+};
+
+// ── FFT Charts (bar) ──
+function makeFFTChart(id, color) {
+    return new Chart(document.getElementById(id), {
+        type:'bar',
+        data:{ labels:[], datasets:[{ label:'Magnitude', data:[], backgroundColor:color+'99', borderColor:color, borderWidth:1 }] },
+        options:{ responsive:true, animation:false,
+            plugins:{ legend:{display:false} },
+            scales:{ x:{title:{display:true,text:'Frequency (Hz)',color:tickColor,font:{size:9}},ticks:{color:tickColor,font:{size:8}},grid:{color:gridColor}},
+                     y:{title:{display:true,text:'Magnitude',color:tickColor,font:{size:9}},ticks:{color:tickColor,font:{size:8}},grid:{color:gridColor}} }
+        }
+    });
+}
+const fftCharts = { temp:makeFFTChart('fftTemp',colors.temp), hum:makeFFTChart('fftHum',colors.hum), dist:makeFFTChart('fftDist',colors.dist), fan:makeFFTChart('fftFan',colors.fan) };
+
+// ── Filtered Signal Charts ──
+function makeFiltChart(id, color) {
+    return new Chart(document.getElementById(id), {
+        type:'line',
+        data:{ labels:[], datasets:[
+            { label:'Raw', data:[], borderColor:color+'55', borderWidth:1, pointRadius:0, tension:0.2, fill:false },
+            { label:'Filtered', data:[], borderColor:color, borderWidth:2.5, pointRadius:0, tension:0.3, fill:false }
+        ]},
+        options:{ responsive:true, animation:false,
+            plugins:{ legend:{labels:{color:tickColor,font:{size:9}}} },
+            scales:{ x:{ticks:{color:tickColor,maxTicksLimit:8,font:{size:8}},grid:{color:gridColor}}, y:{ticks:{color:tickColor,font:{size:8}},grid:{color:gridColor}} }
+        }
+    });
+}
+const filtCharts = { temp:makeFiltChart('filtTemp',colors.temp), hum:makeFiltChart('filtHum',colors.hum), dist:makeFiltChart('filtDist',colors.dist), fan:makeFiltChart('filtFan',colors.fan) };
+
+// ── Scatter Charts ──
+function makeScatterChart(id, colorX, colorY) {
+    return new Chart(document.getElementById(id), {
+        type:'scatter',
+        data:{ datasets:[{ label:'Data', data:[], backgroundColor:colorX+'88', borderColor:colorX, pointRadius:3 }] },
+        options:{ responsive:true, animation:false,
+            plugins:{ legend:{display:false} },
+            scales:{ x:{ticks:{color:tickColor,font:{size:9}},grid:{color:gridColor}}, y:{ticks:{color:tickColor,font:{size:9}},grid:{color:gridColor}} }
+        }
+    });
+}
+const scatterCharts = { tempFan:makeScatterChart('scatterTempFan',colors.temp,colors.fan), tempHum:makeScatterChart('scatterTempHum',colors.temp,colors.hum) };
+
+// ── Derivative Charts ──
+function makeDerivChart(id, color) {
+    return new Chart(document.getElementById(id), {
+        type:'line',
+        data:{ labels:[], datasets:[{ label:'Δ/s', data:[], borderColor:color, backgroundColor:color+'22', borderWidth:1.5, pointRadius:0, tension:0.3, fill:true }] },
+        options:{ responsive:true, animation:false,
+            plugins:{ legend:{display:false} },
+            scales:{ x:{ticks:{color:tickColor,maxTicksLimit:8,font:{size:8}},grid:{color:gridColor}}, y:{ticks:{color:tickColor,font:{size:8}},grid:{color:gridColor}} }
+        }
+    });
+}
+const derivCharts = { temp:makeDerivChart('derivTemp',colors.temp), dist:makeDerivChart('derivDist',colors.dist) };
+
+// ══════════════════════════════════════════════
+// FILTER CONTROLS
+// ══════════════════════════════════════════════
+function updateFilter() {
+    const ftype = document.getElementById('filterType').value;
+    const cutoff = parseFloat(document.getElementById('filterCutoff').value);
+    const cutoffHigh = parseFloat(document.getElementById('filterCutoffHigh').value);
+    const order = parseInt(document.getElementById('filterOrder').value);
+    document.getElementById('cutoffVal').textContent = cutoff.toFixed(2);
+    document.getElementById('cutoffHighVal').textContent = cutoffHigh.toFixed(2);
+    document.getElementById('cutoffHighGroup').style.display = ftype === 'bandpass' ? '' : 'none';
+    socket.emit('set_filter', { type:ftype, cutoff:cutoff, cutoff_high:cutoffHigh, order:order });
+}
+
+// ══════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════
+function togglePause() { socket.emit('toggle_pause'); }
+function fmt(v) { return v != null ? v : '--'; }
+function updateStats(key, stats) {
+    const K = key.charAt(0).toUpperCase() + key.slice(1);
+    document.getElementById('stat'+K+'Mean').textContent = fmt(stats.mean);
+    document.getElementById('stat'+K+'Std').textContent = fmt(stats.std);
+    document.getElementById('stat'+K+'Min').textContent = fmt(stats.min);
+    document.getElementById('stat'+K+'Max').textContent = fmt(stats.max);
+}
+function updateGauge(id, val, unit) {
+    if (val != null) document.getElementById(id).innerHTML = val + '<span class="gauge-unit"> ' + unit + '</span>';
+}
+function updateCorrBadge(id, val) {
+    const el = document.getElementById(id);
+    if (val == null) { el.textContent = '--'; el.className = 'corr-badge neutral'; return; }
+    el.textContent = val.toFixed(4);
+    el.className = 'corr-badge ' + (val > 0.3 ? 'positive' : val < -0.3 ? 'negative' : 'neutral');
+}
+
+// ══════════════════════════════════════════════
+// SOCKET.IO
+// ══════════════════════════════════════════════
+const socket = io();
+socket.on('connect', () => { document.getElementById('statusDot').classList.add('connected'); document.getElementById('statusText').textContent = 'Live'; });
+socket.on('disconnect', () => { document.getElementById('statusDot').classList.remove('connected'); document.getElementById('statusText').textContent = 'Disconnected'; });
+socket.on('pause_state', (msg) => {
+    const btn = document.getElementById('btnPause');
+    if (msg.paused) { btn.textContent = '▶ Resume'; btn.classList.add('paused'); }
+    else { btn.textContent = '⏸ Pause'; btn.classList.remove('paused'); }
+});
+
+socket.on('serial_data', (d) => {
+    sampleCount++;
+    document.getElementById('countLabel').textContent = 'Samples: ' + sampleCount;
+    document.getElementById('bufferInfo').textContent = 'Buffer: ' + (d.buffer_size || 0) + '/64';
+
+    const time = new Date(d.timestamp).toLocaleTimeString();
+    labels.push(time);
+    for (const key of ['temp','hum','fan','dist']) {
+        rawData[key].push(d.raw[key] ?? null);
+        filtData[key].push(d.filtered[key] ?? null);
+    }
+    if (labels.length > MAX_POINTS) {
+        labels.shift();
+        for (const key of ['temp','hum','fan','dist']) { rawData[key].shift(); filtData[key].shift(); }
+    }
+
+    // Update dashboard charts
+    for (const key of ['temp','hum','fan','dist']) charts[key].update();
+
+    // Update gauges
+    const src = d.raw;
+    updateGauge('valTemp', src.temp, '°C');
+    updateGauge('valHum', src.hum, '%');
+    updateGauge('valFan', src.fan, '/255');
+    updateGauge('valDist', src.dist, 'cm');
+
+    // Update stats
+    for (const key of ['temp','hum','fan','dist']) updateStats(key, d.stats[key]);
+
+    // ── Signal Processing Tab ──
+    if (d.signal) {
+        for (const key of ['temp','hum','fan','dist']) {
+            const sig = d.signal[key];
+            // FFT
+            if (sig.fft) {
+                const fc = fftCharts[key];
+                fc.data.labels = sig.fft.freqs.map(f => f.toFixed(3));
+                fc.data.datasets[0].data = sig.fft.magnitudes;
+                fc.update();
+            }
+            // Filtered overlay
+            if (sig.filtered) {
+                const flc = filtCharts[key];
+                const rawHist = rawData[key].slice(-sig.filtered.length);
+                const filtLabels = labels.slice(-sig.filtered.length);
+                flc.data.labels = filtLabels;
+                flc.data.datasets[0].data = rawHist;
+                flc.data.datasets[1].data = sig.filtered;
+                flc.update();
+            }
+        }
+    }
+
+    // ── Correlation Tab ──
+    if (d.correlations) {
+        updateCorrBadge('corrTempFan', d.correlations.temp_fan?.pearson);
+        updateCorrBadge('corrTempHum', d.correlations.temp_hum?.pearson);
+        updateCorrBadge('corrTempDist', d.correlations.temp_dist?.pearson);
+
+        // Scatter plots
+        if (d.correlations.temp_fan) {
+            const tf = d.correlations.temp_fan;
+            scatterCharts.tempFan.data.datasets[0].data = tf.scatter_x.map((x,i) => ({x, y:tf.scatter_y[i]}));
+            scatterCharts.tempFan.update();
+        }
+        if (d.correlations.temp_hum) {
+            const th = d.correlations.temp_hum;
+            scatterCharts.tempHum.data.datasets[0].data = th.scatter_x.map((x,i) => ({x, y:th.scatter_y[i]}));
+            scatterCharts.tempHum.update();
+        }
+    }
+
+    // ── Derivative charts ──
+    if (d.signal) {
+        for (const key of ['temp','dist']) {
+            if (d.signal[key].derivative) {
+                const dc = derivCharts[key];
+                const dv = d.signal[key].derivative;
+                dc.data.labels = Array.from({length:dv.length}, (_,i) => i);
+                dc.data.datasets[0].data = dv;
+                dc.update();
+            }
+        }
+    }
+});
+</script>
+</body>
+</html>
