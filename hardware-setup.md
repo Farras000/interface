@@ -10,7 +10,20 @@ The code is designed to monitor **room temperature** and the **proximity of an o
 * **Ultrasonic distance sensor (HC-SR04)**: 
   * Trigger Pin: Pin 3 (`TRIG`)
   * Echo Pin: Pin 4 (`ECHO`)
-* **Cooling Fan**: Connected to Pin 5 (`FAN`). Must be a PWM-compatible pin to support variable speed.
+* **Cooling Fan**: Connected to Pin 5 (`FAN`). Must be a PWM-compatible pin to support variable speed. Pin configuration for the fan:
+  ```text
+  Arduino D5 ──[220Ω]── Gate
+                       │
+                     [10kΩ]
+                       │
+                      GND
+
+  Source ───────────── GND (Arduino)
+
+  Drain ────────────── negatif fan
+
+  Positif fan ─────── 5V
+  ```
 
 ## How the Code Works
 
