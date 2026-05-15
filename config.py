@@ -2,7 +2,7 @@
 Application configuration and constants.
 """
 
-SERIAL_PORT = "COM6"
+SERIAL_PORT = "COM5"
 BAUD_RATE = 115200
 FILTER_WINDOW = 5     # Moving average window size
 STATS_WINDOW = 60     # Statistics computed over last N readings

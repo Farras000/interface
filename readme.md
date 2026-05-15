@@ -185,6 +185,8 @@ Positif fan ─────── 5V
 
 ### Python Dependencies
 
+**External Libraries (install via `requirement.txt`):**
+
 | Package | Purpose |
 |---|---|
 | `flask` | Web server |
@@ -192,6 +194,19 @@ Positif fan ─────── 5V
 | `pyserial` | Serial port communication with Arduino |
 | `numpy` | Numerical operations and FFT |
 | `scipy` | Butterworth digital filter design |
+| `matplotlib` | Real-time plotting for standalone monitor (`monitor.py`) |
+
+**Built-in Standard Libraries:**
+
+| Library | Purpose |
+|---|---|
+| `collections` | Deque for history buffers |
+| `csv` | Data logging to CSV files |
+| `os` | File and directory path operations |
+| `datetime` | Timestamp generation for logs |
+| `json` | Parsing serial data from Arduino |
+| `time` | Loop delays and timing |
+| `threading` | Background tasks for serial reading |
 
 ---
 
