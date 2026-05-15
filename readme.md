@@ -105,7 +105,7 @@ Arduino                         Python Server                    Browser
 | Arduino Uno (or compatible) | Microcontroller board |
 | DHT11 | Temperature & humidity sensor |
 | HC-SR04 | Ultrasonic distance sensor |
-| DC Fan (5V/12V) | PWM-controlled cooling fan |
+| DC Fan (5V) | PWM-controlled cooling fan |
 | MOSFET / transistor | To drive the fan from a PWM pin (if needed) |
 | Breadboard + jumper wires | For wiring |
 
@@ -134,22 +134,46 @@ Pin 5 ──┤ D5 (PWM)  │──── Fan (via MOSFET gate)
         └───────────┘
 ```
 
-> **Note:** If using a 12V fan, power it from an external 12V supply through a MOSFET/transistor, with the MOSFET gate driven by Pin 5.
-> 
-> **Fan MOSFET Configuration:**
-> ```text
-> Arduino D5 ──[220Ω]── Gate
->                      │
->                    [10kΩ]
->                      │
->                     GND
-> 
-> Source ───────────── GND (Arduino)
-> 
-> Drain ────────────── negatif fan
-> 
-> Positif fan ─────── 5V
-> ```
+### Detailed Component Wiring
+
+#### DHT11 Sensor:
+```text
+Arduino D2 ────────── Data
+                     │
+                   [10kΩ] (Optional pull-up)
+                     │
+                    5V
+
+Arduino 5V ────────── VCC
+
+Arduino GND ───────── GND
+```
+
+#### HC-SR04 Ultrasonic Sensor:
+```text
+Arduino 5V ────────── VCC
+
+Arduino GND ───────── GND
+
+Arduino D3 ────────── TRIG
+
+Arduino D4 ────────── ECHO
+```
+
+#### 5V Fan (via MOSFET):
+```text
+Arduino D5 ──[220Ω]── Gate
+                     │
+                   [10kΩ]
+                     │
+                    GND
+
+Source ───────────── GND (Arduino)
+
+Drain ────────────── negatif fan
+
+Positif fan ─────── 5V
+```
 
 ---
 

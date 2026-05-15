@@ -7,10 +7,30 @@ The code is designed to monitor **room temperature** and the **proximity of an o
 
 ## Hardware Configuration (Pinout)
 * **DHT11 Sensor (Temperature/Humidity)**: Connected to Pin 2 (Defined as `DHTPIN`).
+  ```text
+  Arduino D2 ────────── Data
+                       │
+                     [10kΩ] (Optional pull-up)
+                       │
+                      5V
+
+  Arduino 5V ────────── VCC
+
+  Arduino GND ───────── GND
+  ```
 * **Ultrasonic distance sensor (HC-SR04)**: 
   * Trigger Pin: Pin 3 (`TRIG`)
   * Echo Pin: Pin 4 (`ECHO`)
-* **Cooling Fan**: Connected to Pin 5 (`FAN`). Must be a PWM-compatible pin to support variable speed. Pin configuration for the fan:
+  ```text
+  Arduino 5V ────────── VCC
+
+  Arduino GND ───────── GND
+
+  Arduino D3 ────────── TRIG
+
+  Arduino D4 ────────── ECHO
+  ```
+* **Cooling Fan (5V)**: Connected to Pin 5 (`FAN`). Must be a PWM-compatible pin to support variable speed. Pin configuration for the fan:
   ```text
   Arduino D5 ──[220Ω]── Gate
                        │
