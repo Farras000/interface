@@ -135,6 +135,21 @@ Pin 5 ──┤ D5 (PWM)  │──── Fan (via MOSFET gate)
 ```
 
 > **Note:** If using a 12V fan, power it from an external 12V supply through a MOSFET/transistor, with the MOSFET gate driven by Pin 5.
+> 
+> **Fan MOSFET Configuration:**
+> ```text
+> Arduino D5 ──[220Ω]── Gate
+>                      │
+>                    [10kΩ]
+>                      │
+>                     GND
+> 
+> Source ───────────── GND (Arduino)
+> 
+> Drain ────────────── negatif fan
+> 
+> Positif fan ─────── 5V
+> ```
 
 ---
 
