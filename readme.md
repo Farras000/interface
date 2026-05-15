@@ -27,7 +27,7 @@ The system consists of two parts:
 
 | Layer | Role |
 |---|---|
-| **Arduino (C/C++)** | Reads DHT11 (temperature/humidity) and HC-SR04 (distance) sensors, sends JSON data over serial, and applies PWM fan speed received from Python. |
+| **Arduino (C/C++)** | Reads DHT11/DHT22 (temperature/humidity) and HC-SR04 (distance) sensors, sends JSON data over serial, and applies PWM fan speed received from Python. |
 | **Python (Flask + SocketIO)** | Reads serial JSON, computes the fan speed linearly from temperature, writes the PWM value back to the Arduino, logs data to CSV, performs signal processing, and serves a real-time web dashboard via WebSocket. |
 
 ### Data Flow
@@ -38,7 +38,7 @@ Arduino                         Python Server                    Browser
   │── JSON {temp,hum,dist,fan} ────► │                              │
   │                                  │── compute fan PWM ──►        │
   │◄── PWM value (0–255) ─────────── │                              │
-  │                                  │── WebSocket emit ──────────►│
+  │                                  │── WebSocket emit ──────────► │
   │                                  │                     (real-time charts)
 ```
 
@@ -67,7 +67,7 @@ Arduino                         Python Server                    Browser
 ┌─────────────────────────────────────────────────────────────┐
 │                       Arduino Uno                           │
 │                                                             │
-│  DHT11 (Pin 2)  ──►  Read Temp & Humidity                   │
+│  DHT11/DHT22 (Pin 2)  ──►  Read Temp & Humidity             │
 │  HC-SR04 (Pin 3/4) ──►  Read Distance                       │
 │  Fan (Pin 5, PWM) ◄──  analogWrite(currentFanSpeed)         │
 │                                                             │
@@ -103,7 +103,7 @@ Arduino                         Python Server                    Browser
 | Component | Description |
 |---|---|
 | Arduino Uno (or compatible) | Microcontroller board |
-| DHT11 | Temperature & humidity sensor |
+| DHT11/DHT22 | Temperature & humidity sensor |
 | HC-SR04 | Ultrasonic distance sensor |
 | DC Fan (5V) | PWM-controlled cooling fan |
 | MOSFET / transistor | To drive the fan from a PWM pin (if needed) |
@@ -113,11 +113,11 @@ Arduino                         Python Server                    Browser
 
 | Arduino Pin | Connected To      | Notes |
 |---|---|---|
-| **Pin 2** | DHT11 data pin    | Add a 10kΩ pull-up resistor to VCC  |
+| **Pin 2** | DHT11/DHT22 data pin    | Add a 10kΩ pull-up resistor to VCC  |
 | **Pin 3** | HC-SR04 TRIG      | Trigger (output)                    |
 | **Pin 4** | HC-SR04 ECHO      | Echo (input)                        |
 | **Pin 5** | Fan (via MOSFET)  | Must be a PWM-capable pin           |
-| **5V**    | Sensor VCC        | Power for DHT11 and HC-SR04         |
+| **5V**    | Sensor VCC        | Power for DHT11/DHT22 and HC-SR04         |
 | **GND**   | Common ground     | All components share ground         |
 
 ### Wiring Diagram
@@ -127,7 +127,7 @@ Arduino                         Python Server                    Browser
         ┌───────────┐
   5V ───┤ 5V    GND ├─── GND (common)
         │           │
-Pin 2 ──┤ D2        │──── DHT11 Data (+ 10kΩ pull-up to 5V)
+Pin 2 ──┤ D2        │──── DHT11/DHT22 Data (+ 10kΩ pull-up to 5V)
 Pin 3 ──┤ D3        │──── HC-SR04 TRIG
 Pin 4 ──┤ D4        │──── HC-SR04 ECHO
 Pin 5 ──┤ D5 (PWM)  │──── Fan (via MOSFET gate)
@@ -136,7 +136,7 @@ Pin 5 ──┤ D5 (PWM)  │──── Fan (via MOSFET gate)
 
 ### Detailed Component Wiring
 
-#### DHT11 Sensor:
+#### DHT11/DHT22 Sensor:
 ```text
 Arduino D2 ────────── Data
                      │
@@ -180,7 +180,7 @@ Positif fan ─────── 5V
 ## Software Requirements
 
 - **Python 3.8+**
-- **Arduino IDE** (to flash the Arduino sketch)
+- **VS Code with PlatformIO** or **Arduino IDE** (to flash the Arduino sketch)
 - A modern web browser
 
 ### Python Dependencies
@@ -197,12 +197,19 @@ Positif fan ─────── 5V
 
 ## Installation
 
+> **Note:** The C++ firmware for the microcontroller is hosted separately. You can get the complete Arduino code from this repository: 🔗 [Farras000/interface-arduino](https://github.com/Farras000/interface-arduino/)
+
 ### 1. Flash the Arduino
 
-1. Open the Arduino sketch (the C code using `DHT.h`) in the **Arduino IDE**.
-2. Install the **DHT sensor library** via the Library Manager.
-3. Select your board (e.g., Arduino Uno) and the correct COM port.
-4. Upload the sketch.
+**Using PlatformIO (Recommended):**
+1. Open the project folder (`PlatformIO/Projects/interface`) in **VS Code** with the **PlatformIO IDE** extension installed.
+2. The `platformio.ini` should handle library dependencies (ensure `Adafruit Unified Sensor` and `DHT sensor library` are included).
+3. Connect your microcontroller and click **Build** then **Upload** in the PlatformIO panel.
+
+**Using Arduino IDE:**
+1. Open the main source file (e.g., `src/main.cpp` renamed to `main.ino`) in the **Arduino IDE**.
+2. Go to **Sketch > Include Library > Manage Libraries...** and install `Adafruit Unified Sensor` and `DHT sensor library`.
+3. Select your board and port from the **Tools** menu, then click **Upload**.
 
 ### 2. Set Up Python
 
@@ -371,15 +378,12 @@ interface/
 
 ## Arduino Firmware
 
-The firmware for the Arduino is written in C++ (Arduino sketch). It should be uploaded using the Arduino IDE. The logic involves:
-1. Reading temperature and humidity from the DHT11 sensor.
+🔗 **Source Code:** [Farras000/interface-arduino](https://github.com/Farras000/interface-arduino/)
+
+The firmware for the Arduino is written in C++. It can be built and uploaded using **PlatformIO** or the standard **Arduino IDE**. The logic involves:
+1. Reading temperature and humidity from the DHT11/DHT22 sensor.
 2. Reading distance from the HC-SR04 ultrasonic sensor.
 3. Sending the readings as a JSON string over Serial.
 4. Receiving a PWM value back from the Python server and applying it to the fan.
 
 
----
-
-## License
-
-This project is for educational and personal use.

@@ -1,42 +1,49 @@
-# Temperature-Controlled Smart Fan Code Explanation
+# Smart Fan Node Interface
 
-This document explains the functionality of the Arduino C++ firmware logic.
+This project is a microcontroller-based interface that collects environmental data (temperature and humidity) and detects object presence using an ultrasonic distance sensor. It receives fan speed control commands over a Serial connection and continuously outputs the system's state in JSON format, making it ideal for integration with a Python backend, IoT gateway, or a web dashboard.
 
-## Overview
-The code is designed to control a cooling fan based on two factors: **room temperature** and the **proximity of an object (or person)**. It uses a DHT11 sensor to read temperature and humidity, and an HC-SR04-style ultrasonic sensor to measure distance. The fan is controlled using Pulse Width Modulation (PWM) to adjust its speed dynamically. Finally, all the collected data is formatted as JSON and sent over the Serial monitor.
+## Features
 
-## Hardware Configuration (Pinout)
-* **DHT11 Sensor (Temperature/Humidity)**: Connected to Pin 2 (Defined as `DHTPIN`).
-* **Ultrasonic distance sensor (HC-SR04)**: 
-  * Trigger Pin: Pin 3 (`TRIG`)
-  * Echo Pin: Pin 4 (`ECHO`)
-* **Cooling Fan**: Connected to Pin 5 (`FAN`). Must be a PWM-compatible pin to support variable speed.
+* **Environmental Monitoring**: Tracks real-time temperature and humidity. *(Note: Supports both **DHT11** and **DHT22** sensors depending on your specific configuration).*
+* **Proximity Detection**: Measures the distance of nearby objects using an HC-SR04 ultrasonic sensor.
+* **PWM Fan Control**: Dynamically adjusts a cooling fan's speed based on Serial input commands.
+* **JSON Data Streaming**: Packages all sensor readings and the current fan state into a clean JSON string sent via Serial (`115200` baud) for easy parsing by external applications.
 
-## How the Code Works
+## Hardware Components & Pinout
 
-### 1. Distance Calculation (`readDistance()`)
-The function `readDistance()` emits an ultrasonic pulse and listens for the echo:
-1. It sends a short high pulse (10 microseconds) on the `TRIG` pin.
-2. It waits for the `ECHO` pin to go high and measures the duration.
-3. It converts the duration into a raw distance using the speed of sound (`duration * 0.034 / 2.0`).
-4. A small linear calibration is applied to tweak the raw values (`1.037 * rawDist - 0.115`).
-5. It returns the calculated distance in centimeters. If the sensor times out (no object), it returns `-1.0`.
+| Component | Pin | Note |
+| :--- | :--- | :--- |
+| **DHT11 / DHT22** Sensor | `2` | Temperature and Humidity (`DHTPIN`) |
+| **HC-SR04** Trig | `3` | Ultrasonic emits trigger (`TRIG`) |
+| **HC-SR04** Echo | `4` | Ultrasonic reads pulse echo (`ECHO`) |
+| **DC Fan** | `5` | Requires a PWM-capable output pin (`FAN`) |
 
-### 2. Fan Speed Control (Serial Input)
-Unlike standalone systems that make their own decisions, this code expects the fan speed to be controlled by an external application (the Python server).
-* **Serial Parsing**: The Arduino listens for incoming PWM values (0–255) over the serial port.
-* **Dynamic Speed**: When a valid value is received, it is stored and immediately applied to the fan motor.
-* **External Decision**: This allows for more complex control algorithms (like linear mapping or signal filtering) to be handled by the more powerful Python server rather than the microcontroller.
+## Data Protocol
 
-### 3. Setup and Initialization (`setup()`)
-* Starts Serial communication at a baud rate of `115200` to stream data to a computer or connected device.
-* Configures pin modes (Inputs/Outputs).
-* Initializes the DHT11 sensor.
+### Input (Host -> Microcontroller)
+The microcontroller listens on the Serial port for an integer value between `0` and `255`. This value is parsed and directly sets the PWM duty cycle for the fan (where `0` is completely off and `255` is maximum speed).
 
-### 4. Main Event Loop (`loop()`)
-Every 1 second (`delay(1000)`), the microcontroller does the following sequence:
-  1. **Reads Serial input**: Checks for incoming target speeds from the connected Python application.
-  2. **Reads sensors**: Captures temperature, humidity, and distance.
-  3. **Applies speed**: Uses `analogWrite(FAN, currentFanSpeed)` to set the physical speed of the motor.
-4. **Serial Detailed Output**: Prints out detailed distance measurements in multiple units (cm, meters, inches) for debugging.
-5. **Serial JSON Output**: Packages rounded numbers into a clean JSON string, for instance: `{"temp":24,"hum":45,"dist":50,"fan":200}`. This format is highly optimal for parsing by an external Python script or Web Interface.
+### Output (Microcontroller -> Host)
+Sensor data is transmitted every 1 second continuously in the following JSON format:
+```json
+{"temp":24,"hum":45,"dist":50,"fan":200}
+```
+* `temp`: Temperature in degrees Celsius.
+* `hum`: Relative humidity percentage.
+* `dist`: Object distance in centimeters (`-1` if out of bounds/no echo).
+* `fan`: Current fan speed (PWM value `0-255`).
+
+*(Note: Human-readable detailed distance debugging output is also supplied via `DIST_DETAIL_CM:...` before the JSON string for terminal manual inspection).*
+
+## Getting Started
+
+This project is structured for **PlatformIO**, but can also be used with the **Arduino IDE**.
+
+1. Clone or download this repository.
+2. **Using PlatformIO:** Open the project folder (`PlatformIO/Projects/interface`) in **VS Code** with the **PlatformIO IDE** extension installed. Your `platformio.ini` should handle library dependencies.
+3. **Using Arduino IDE:** Open the main source file (e.g., `src/main.cpp` renamed to `main.ino`) in the **Arduino IDE** and manually install the `Adafruit Unified Sensor` and `DHT sensor library` via the Library Manager.
+4. Connect your microcontroller and upload the code (via **Build > Upload** in PlatformIO or **Upload** in Arduino IDE).
+5. Open the Serial Monitor (ensure the baud rate is set to `115200`) to view the JSON output and test sending PWM control values.
+
+## Deep Dive
+For a detailed explanation of the project's internal code logic and loop sequence, please refer to the [`src/main_explanation.md`](src/main_explanation.md) documentation file.
