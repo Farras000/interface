@@ -1,16 +1,12 @@
-"""
-Serial reader thread: reads JSON from the Arduino, computes fan speed,
-sends it back, and pushes data to the frontend via WebSocket.
-"""
-
 import serial
 import json
 import time
 from datetime import datetime
+from statistics import median
 
 import state
 from config import SERIAL_PORT, BAUD_RATE, SENSORS
-from utils import is_valid, temp_to_fan_speed
+from utils import is_valid, temp_to_fan_speed, _compute_pwm
 from signal_processing import (
     moving_average,
     compute_stats,
@@ -43,9 +39,36 @@ def serial_reader(socketio):
 
             # ── Compute and send fan speed back to Arduino ──
             temp = data.get("temp")
-            fan_speed = temp_to_fan_speed(temp)
-            ser.write(f"{fan_speed}\n".encode())
-            print(f"[Fan] temp={temp}°C → PWM={fan_speed}")
+            dist = data.get("dist")
+
+            if dist is not None:
+                state.dist_buffer.append(dist)
+
+            stable_dist = median(state.dist_buffer) if len(state.dist_buffer) > 0 else dist
+
+            # ── Check manual override ──
+            if getattr(state, "fan_mode", "auto") == "manual":
+                fan_speed = getattr(state, "manual_fan_speed", 0)
+                ser.write(f"{fan_speed}\n".encode())
+                print(f"[Fan] MANUAL OVERRIDE → PWM={fan_speed}")
+            else:
+                # If stable_dist == -1 (no echo / out of range), turn fan off
+                if stable_dist == -1:
+                    fan_speed = 0
+                    ser.write(f"{fan_speed}\n".encode())
+                    if dist != -1:
+                        print(f"[Fan] dist={dist} (raw) → median filtered → PWM=0 (fan off)")
+                    else:
+                        print(f"[Fan] dist=-1 (no object in range) → PWM=0 (fan off)")
+                else:
+                    fan_speed = temp_to_fan_speed(temp)
+                    ser.write(f"{fan_speed}\n".encode())
+                    if temp is None:
+                        print(f"[Fan] temp=None → PWM={fan_speed} (held)")
+                    elif len(state.temp_buffer) > 1 and fan_speed != _compute_pwm(temp):
+                        print(f"[Fan] temp={temp}°C (raw) → median filtered → PWM={fan_speed}")
+                    else:
+                        print(f"[Fan] temp={temp}°C → PWM={fan_speed}")
 
             # Override the fan value in data so downstream sees what we sent
             data["fan"] = fan_speed

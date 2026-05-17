@@ -37,6 +37,16 @@
         <span class="toolbar-label">Data</span>
         <button class="btn" onclick="window.location.href='/download'">💾 Export CSV</button>
         <div class="toolbar-sep"></div>
+        <span class="toolbar-label">Fan Mode</span>
+        <select id="fanMode" onchange="updateFanMode()" class="btn" style="padding: 6px 12px; margin-right: 8px;">
+            <option value="auto">Auto</option>
+            <option value="manual">Manual</option>
+        </select>
+        <div id="manualFanSpeedGroup" style="display:none; align-items:center; gap:8px;">
+            <input type="range" id="manualFanSpeed" min="0" max="255" value="0" oninput="updateFanMode()" style="accent-color: var(--accent-fan); width: 100px;">
+            <span class="toolbar-label" id="manualFanSpeedVal" style="color: var(--accent-fan); font-weight: 600; min-width: 25px;">0</span>
+        </div>
+        <div class="toolbar-sep"></div>
         <span class="toolbar-label" id="countLabel">Samples: 0</span>
     </div>
 
@@ -281,6 +291,15 @@ function updateFilter() {
 // HELPERS
 // ══════════════════════════════════════════════
 function togglePause() { socket.emit('toggle_pause'); }
+
+function updateFanMode() {
+    const mode = document.getElementById('fanMode').value;
+    const speed = document.getElementById('manualFanSpeed').value;
+    document.getElementById('manualFanSpeedGroup').style.display = mode === 'manual' ? 'flex' : 'none';
+    document.getElementById('manualFanSpeedVal').textContent = speed;
+    socket.emit('set_fan_mode', { mode: mode, speed: speed });
+}
+
 function fmt(v) { return v != null ? v : '--'; }
 function updateStats(key, stats) {
     const K = key.charAt(0).toUpperCase() + key.slice(1);

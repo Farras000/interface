@@ -40,6 +40,15 @@ def handle_set_filter(config):
     socketio.emit("filter_updated", state.filter_config)
 
 
+@socketio.on("set_fan_mode")
+def handle_set_fan_mode(data):
+    if "mode" in data:
+        state.fan_mode = data["mode"]
+    if "speed" in data:
+        state.manual_fan_speed = int(data["speed"])
+    print(f"[Control] Fan mode: {state.fan_mode}, Speed: {state.manual_fan_speed}")
+
+
 # ── HTTP Routes ────────────────────────────────────────
 @app.route("/")
 def index():
