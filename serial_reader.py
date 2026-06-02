@@ -32,7 +32,16 @@ def serial_reader(socketio):
             raw = ser.readline().decode(errors="ignore").strip()
             if not raw:
                 continue
-            data = json.loads(raw)
+            
+            # Extract JSON substring in case there is a debug prefix
+            json_start = raw.find('{')
+            if json_start != -1:
+                json_end = raw.rfind('}')
+                json_str = raw[json_start:json_end + 1]
+                data = json.loads(json_str)
+            else:
+                data = json.loads(raw)
+
             if not is_valid(data):
                 print(f"[Serial] Dropped bad reading: {raw}")
                 continue
