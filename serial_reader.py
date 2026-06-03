@@ -87,11 +87,13 @@ def serial_reader(socketio):
                 ser.write(f"{fan_speed}\n".encode())
                 print(f"[Fan] MANUAL OVERRIDE → PWM={fan_speed}")
             else:
-                # If stable_dist == -1 (no echo / out of range), turn fan off
-                if stable_dist == -1:
+                # If stable_dist == -1 (no echo) or > 100 (out of range), turn fan off
+                if stable_dist == -1 or stable_dist > 100:
                     fan_speed = 0
                     ser.write(f"{fan_speed}\n".encode())
-                    if dist != -1:
+                    if stable_dist > 100:
+                        print(f"[Fan] dist={dist} → out of range (>{100}cm) → PWM=0 (fan off)")
+                    elif dist != -1:
                         print(f"[Fan] dist={dist} (raw) → median filtered → PWM=0 (fan off)")
                     else:
                         print(f"[Fan] dist=-1 (no object in range) → PWM=0 (fan off)")
