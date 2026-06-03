@@ -3,7 +3,10 @@ Shared application state: history buffers, CSV writer, pause flag, filter config
 """
 
 from collections import deque
-from config import SENSORS, STATS_WINDOW, FFT_WINDOW, FAN_CONFIRM_READINGS
+from config import SENSORS, STATS_WINDOW, FFT_WINDOW, FAN_CONFIRM_READINGS, SERIAL_PORT
+
+# ── Dynamic COM Port state ─────────────────────────────
+selected_port = SERIAL_PORT
 
 # ── Sensor History ─────────────────────────────────────
 history = {key: deque(maxlen=max(STATS_WINDOW, FFT_WINDOW * 2)) for key in SENSORS}

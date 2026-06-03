@@ -46,6 +46,10 @@ body { font-family: 'Inter', sans-serif; background: var(--bg-primary); color: v
 .gauge-card.temp .gauge-value { color:var(--accent-temp); }
 .gauge-card.fan .gauge-value { color:var(--accent-fan); }
 .gauge-card.dist .gauge-value { color:var(--accent-dist); }
+.gauge-card.dist.out-of-range { box-shadow:inset 0 -2px 0 #ef4444, 0 0 15px rgba(239,68,68,0.15); border-color:rgba(239,68,68,0.3); animation:pulse-range 2s ease-in-out infinite; }
+.gauge-card.dist.out-of-range .gauge-value { color:#ef4444; font-size:1.15rem; }
+.gauge-card.dist.out-of-range .gauge-label::after { content:' ⚠'; }
+@keyframes pulse-range { 0%,100%{ box-shadow:inset 0 -2px 0 #ef4444, 0 0 10px rgba(239,68,68,0.1); } 50%{ box-shadow:inset 0 -2px 0 #ef4444, 0 0 20px rgba(239,68,68,0.25); } }
 .gauge-card.hum .gauge-value { color:var(--accent-hum); }
 .gauge-unit { font-size:0.8rem; font-weight:400; opacity:0.55; }
 

@@ -20,15 +20,41 @@ from signal_processing import (
 def serial_reader(socketio):
     """Background thread: reads serial JSON, computes fan speed, sends it
     back to the Arduino, and pushes data to the frontend via WebSocket."""
-    try:
-        ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
-        print(f"[Serial] Connected to {SERIAL_PORT}")
-    except serial.SerialException as e:
-        print(f"[Serial] Could not open {SERIAL_PORT}: {e}")
-        return
+    ser = None
+    current_port = None
 
     while True:
         try:
+            # Check if target port has changed
+            if state.selected_port != current_port:
+                if ser is not None:
+                    try:
+                        ser.close()
+                        print(f"[Serial] Closed port {current_port}")
+                    except Exception as e:
+                        print(f"[Serial] Error closing port {current_port}: {e}")
+                    ser = None
+                    current_port = None
+                    socketio.emit("port_status", {"status": "disconnected", "port": current_port})
+
+                if state.selected_port:
+                    try:
+                        ser = serial.Serial(state.selected_port, BAUD_RATE, timeout=1)
+                        current_port = state.selected_port
+                        print(f"[Serial] Connected to {current_port}")
+                        socketio.emit("port_status", {"status": "connected", "port": current_port})
+                    except serial.SerialException as e:
+                        print(f"[Serial] Could not open {state.selected_port}: {e}")
+                        socketio.emit("port_status", {"status": "error", "message": str(e), "port": state.selected_port})
+                        ser = None
+                        current_port = None
+                        time.sleep(2)
+                        continue
+
+            if ser is None:
+                time.sleep(0.5)
+                continue
+
             raw = ser.readline().decode(errors="ignore").strip()
             if not raw:
                 continue
@@ -131,6 +157,17 @@ def serial_reader(socketio):
             }
             socketio.emit("serial_data", payload)
 
+        except serial.SerialException as e:
+            print(f"[Serial] Connection error on {current_port}: {e}")
+            socketio.emit("port_status", {"status": "error", "message": f"Connection lost: {e}", "port": current_port})
+            if ser is not None:
+                try:
+                    ser.close()
+                except:
+                    pass
+            ser = None
+            current_port = None
+            time.sleep(2)
         except json.JSONDecodeError:
             pass
         except Exception as e:

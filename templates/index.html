@@ -37,6 +37,10 @@
         <span class="toolbar-label">Data</span>
         <button class="btn" onclick="window.location.href='/download'">💾 Export CSV</button>
         <div class="toolbar-sep"></div>
+        <span class="toolbar-label">COM Port</span>
+        <input type="text" id="portInput" class="btn" placeholder="e.g. 6" style="padding: 6px 12px; margin-right: 8px; width: 60px; color: var(--text-primary); background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; outline: none; text-align: center;">
+        <button class="btn" onclick="changePort()" style="padding: 6px 12px; margin-right: 8px;">Connect</button>
+        <div class="toolbar-sep"></div>
         <span class="toolbar-label">Fan Mode</span>
         <select id="fanMode" onchange="updateFanMode()" class="btn" style="padding: 6px 12px; margin-right: 8px;">
             <option value="auto">Auto</option>
@@ -288,6 +292,14 @@ function updateFilter() {
 }
 
 // ══════════════════════════════════════════════
+// PORT CONTROLS
+// ══════════════════════════════════════════════
+function changePort() {
+    const port = document.getElementById('portInput').value.trim();
+    socket.emit('change_port', { port: port });
+}
+
+// ══════════════════════════════════════════════
 // HELPERS
 // ══════════════════════════════════════════════
 function togglePause() { socket.emit('toggle_pause'); }
@@ -322,8 +334,49 @@ function updateCorrBadge(id, val) {
 // SOCKET.IO
 // ══════════════════════════════════════════════
 const socket = io();
-socket.on('connect', () => { document.getElementById('statusDot').classList.add('connected'); document.getElementById('statusText').textContent = 'Live'; });
-socket.on('disconnect', () => { document.getElementById('statusDot').classList.remove('connected'); document.getElementById('statusText').textContent = 'Disconnected'; });
+socket.on('connect', () => {
+    document.getElementById('statusDot').classList.add('connected');
+    document.getElementById('statusText').textContent = 'Connecting...';
+});
+socket.on('disconnect', () => {
+    document.getElementById('statusDot').classList.remove('connected');
+    document.getElementById('statusText').textContent = 'Disconnected';
+});
+socket.on('ports_list', (data) => {
+    const input = document.getElementById('portInput');
+    if (data.selected) {
+        if (data.selected.startsWith('COM')) {
+            input.value = data.selected.substring(3);
+        } else {
+            input.value = data.selected;
+        }
+    }
+});
+
+socket.on('port_status', (data) => {
+    const statusText = document.getElementById('statusText');
+    const statusDot = document.getElementById('statusDot');
+    const input = document.getElementById('portInput');
+    
+    if (data.status === 'connected') {
+        statusDot.className = 'status-dot connected';
+        statusText.textContent = 'Live (' + data.port + ')';
+        if (data.port) {
+            if (data.port.startsWith('COM')) {
+                input.value = data.port.substring(3);
+            } else {
+                input.value = data.port;
+            }
+        }
+    } else if (data.status === 'disconnected') {
+        statusDot.className = 'status-dot';
+        statusText.textContent = 'Disconnected';
+    } else if (data.status === 'error') {
+        statusDot.className = 'status-dot';
+        statusText.textContent = 'Error (' + data.port + ')';
+        console.error('Serial port error:', data.message);
+    }
+});
 socket.on('pause_state', (msg) => {
     const btn = document.getElementById('btnPause');
     if (msg.paused) { btn.textContent = '▶ Resume'; btn.classList.add('paused'); }
@@ -354,7 +407,16 @@ socket.on('serial_data', (d) => {
     updateGauge('valTemp', src.temp, '°C');
     updateGauge('valHum', src.hum, '%');
     updateGauge('valFan', src.fan, '/255');
-    updateGauge('valDist', src.dist, 'cm');
+
+    // Distance gauge with out-of-range detection (> 100 cm)
+    const distCard = document.querySelector('.gauge-card.dist');
+    if (src.dist != null && src.dist > 100) {
+        distCard.classList.add('out-of-range');
+        document.getElementById('valDist').innerHTML = 'Out of Range<span class="gauge-unit"> (' + src.dist + ' cm)</span>';
+    } else {
+        distCard.classList.remove('out-of-range');
+        updateGauge('valDist', src.dist, 'cm');
+    }
 
     // Update stats
     for (const key of ['temp','hum','fan','dist']) updateStats(key, d.stats[key]);

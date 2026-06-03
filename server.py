@@ -25,6 +25,39 @@ def handle_pause():
     print(f"[Control] {'Paused' if state.paused else 'Resumed'}")
 
 
+@socketio.on("connect")
+def handle_connect():
+    # Send available ports list and current selection to the newly connected client
+    import serial.tools.list_ports
+    ports = [p.device for p in serial.tools.list_ports.comports()]
+    socketio.emit("ports_list", {"ports": ports, "selected": state.selected_port})
+    socketio.emit("port_status", {
+        "status": "connected" if state.selected_port else "disconnected",
+        "port": state.selected_port
+    })
+
+
+@socketio.on("get_ports")
+def handle_get_ports():
+    import serial.tools.list_ports
+    ports = [p.device for p in serial.tools.list_ports.comports()]
+    socketio.emit("ports_list", {"ports": ports, "selected": state.selected_port})
+
+
+@socketio.on("change_port")
+def handle_change_port(data):
+    port_input = str(data.get("port", "")).strip()
+    if not port_input:
+        state.selected_port = None
+    else:
+        if port_input.isdigit():
+            state.selected_port = f"COM{port_input}"
+        else:
+            state.selected_port = port_input.upper()
+    print(f"[Serial] Port change requested to {state.selected_port}")
+
+
+
 @socketio.on("set_filter")
 def handle_set_filter(config):
     """Receive filter configuration from the frontend."""
